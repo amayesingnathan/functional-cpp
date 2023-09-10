@@ -1,4 +1,4 @@
-project "TemplateProject"
+project "functional-cpp"
     language "C++"
     cppdialect "C++20"
 		
@@ -21,7 +21,7 @@ project "TemplateProject"
 
     includedirs
     {
-        "%{IncludeDir.TemplateProject}",
+        "%{IncludeDir.functional_cpp}",
     }
 
 	links
@@ -29,12 +29,12 @@ project "TemplateProject"
 	}
 	
     filter "system:windows"
-        kind "ProjectTypeWin"
+        kind "StaticLib"
         staticruntime "off"
         systemversion "latest"
 		
 	filter "system:linux"
-        kind "ProjectTypeLinux"
+        kind "SharedLib"
         staticruntime "off"
         pic "On"
         systemversion "latest"

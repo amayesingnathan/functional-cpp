@@ -1,4 +1,4 @@
-workspace "cpp-template"
+workspace "functional-cpp"
 
     configurations 
     { 
@@ -25,6 +25,6 @@ workspace "cpp-template"
 outputDir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
 IncludeDir = {}
-IncludeDir["TemplateProject"] 	= "%{wks.location}/TemplateProject/src"
+IncludeDir["functional_cpp"] 	= "%{wks.location}/functional-cpp/src"
 
-include "TemplateProject"
+include "functional-cpp"
