@@ -44,7 +44,7 @@ namespace fcpp {
 
 		constexpr T clone() const noexcept(NoExceptCopy) { return GetValCopy(); }
 
-		constexpr T expect(const std::string_view msg)
+		constexpr T&& expect(const std::string_view msg)
 		{
 			if (!mResult)
 				throw std::runtime_error(msg.data());
@@ -53,66 +53,53 @@ namespace fcpp {
 		}
 		constexpr T&& unwrap() { return expect("emergency failure"); }
 
-		constexpr T unwrap_or(T&& defaultValue) noexcept(NoExceptMove)
+		constexpr T&& unwrap_or(T&& defaultValue) noexcept(NoExceptMove)
 		{
 			if (mResult)
 				return GetVal();
 			else
 				return T(std::move(defaultValue));
 		}
-		constexpr T unwrap_or_default() noexcept(NoExceptDefNew)
+		constexpr T&& unwrap_or_default() noexcept(NoExceptDefNew)
 		{
 			return unwrap_or(T());
 		}
 		template<typename Func> requires IsFunc<Func, T>
-		constexpr T unwrap_or_else(Func&& op) noexcept(IsFuncNoExcept<Func, T>())
+		constexpr T&& unwrap_or_else(Func&& op) noexcept(noexcept(op()) && NoExceptMove)
 		{
 			return unwrap_or(op());
 		}
 
-		template<typename Func, typename R = T> requires IsFunc<Func, R, T&&>
-		constexpr Result<R, E> map(Func&& func) noexcept(IsResultFuncNoExcept<Func, R>)
+		template<typename Func, typename R> requires IsFunc<Func, Result<R, E>, T&&>
+		constexpr Result<R, E>&& map(Func&& op) noexcept(noexcept(op()) && Result<R, E>::NoExceptMove && NoExceptMove)
 		{
-			if (is_ok())
-				return func(GetVal());
+			if (mResult)
+				return op(GetVal());
 
 			return Result<R, E>(GetErr());
 		}
 
 		template<typename Func, typename R = T> requires IsFunc<Func, Result<R, E>>
-		constexpr Result<R, E> then(Func&& next) noexcept(IsResultFuncNoExcept<Func, R>)
+		constexpr Result<R, E> then(Func&& next) noexcept(noexcept(next()) && Result<R, E>::NoExceptMove)
 		{
-			if (is_ok())
+			if (mResult)
 				return next();
 
-			ifc(std::is_same_v<T, R>)
-				return *this;
-			else
-				return Result<R, E>(GetErr());
+			return Result<R, E>(GetErr());
 		}
 
 		template<typename Func, typename R = T> requires IsFunc<Func, Result<R, E>>
-		constexpr Result<R, E> operator |(Func&& next) noexcept(IsResultFuncNoExcept<Func, R>)
+		constexpr Result<R, E> operator |(Func&& next) noexcept(noexcept(next()) && Result<R, E>::NoExceptMove)
 		{
-			if (is_ok())
+			if (mResult)
 				return next();
 
-			ifc(std::is_same_v<T, R>)
-				return *this;
-			else
-				return Result<R, E>(GetErr());
+			return Result<R, E>(GetErr());
 		}
 
-	protected:
 		constexpr T&& GetVal() noexcept(NoExceptMove) { return std::move(*std::get_if<T>(&mValue)); }
 		constexpr T GetValCopy() { return *std::get_if<T>(&mValue); }
 		constexpr E GetErr() const noexcept { return *std::get_if<E>(&mValue); }
-
-		template<typename Func, typename TReturn> requires IsFunc<Func, TReturn>
-		SCONSTEVAL bool IsFuncNoExcept() { return noexcept(std::declval<Func>()()); }
-
-		template<typename Func, typename R> requires IsFunc<Func, Result<R, E>>
-		SCONSTEXPR bool IsResultFuncNoExcept = IsFuncNoExcept<Func, Result<R, E>>();
 
 	protected:
 		bool mResult;

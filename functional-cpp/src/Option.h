@@ -13,17 +13,17 @@ namespace fcpp {
 	class Option : public Result<T, OptionEnum::NoneEnum>
 	{
 	private:
-		using ResultType = Result<T, OptionEnum::NoneEnum>;
+		using BaseType = Result<T, OptionEnum::NoneEnum>;
 
 	public:
 		template<IsEnum E>
-		Result<T, E> ok_or(E err) noexcept(ResultType::NoExceptMove)
+		Result<T, E> ok_or(E err) noexcept(BaseType::NoExceptMove)
 		{
 			using ReturnType = Result<T, E>;
 			return this->mResult ? ReturnType(this->GetVal()) : ReturnType(err);
 		}
 		template<IsEnum E>
-		Result<T, E> ok_or_else(IsFunc<E> auto&& err) noexcept(ResultType::NoExceptMove)
+		Result<T, E> ok_or_else(IsFunc<E> auto&& err) noexcept(BaseType::NoExceptMove)
 		{
 			using ReturnType = Result<T, E>;
 			return this->mResult ? ReturnType(this->GetVal()) : ReturnType(err);
