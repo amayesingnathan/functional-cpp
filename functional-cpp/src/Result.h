@@ -78,6 +78,36 @@ namespace fcpp {
 
 			return Result<R, E>(GetErr());
 		}
+		template<typename Func, IsEnum U> requires IsFunc<Func, U, E>
+		constexpr Result<T, E>&& map_err(Func&& op) noexcept(noexcept(op()) && NoExceptMove)
+		{
+			if (mResult)
+				return Result<T, U>(GetVal());
+
+			return Result<T, U>(op(GetErr()));
+		}
+		template<typename Func, typename R> requires IsFunc<Func, R&&, T&&>
+		constexpr R&& map_or(R&& defaultVal, Func&& op) noexcept(noexcept(op()) && Result<R, E>::NoExceptMove && NoExceptMove)
+		{
+			if (mResult)
+				return GetVal();
+
+			return std::move(defaultVal);
+		}
+		template<typename Func, typename ErrFunc, typename R> requires IsFunc<Func, R&&, T&&> and IsFunc<ErrFunc, R&&, E>
+		constexpr R&& map_or_else(Func&& op, ErrFunc&& errOp) noexcept(
+			noexcept(op()) && 
+			noexcept(errOp()) &&
+			Result<R, E>::NoExceptMove &&
+			NoExceptMove
+		)
+		{
+			if (mResult)
+				return op(GetVal());
+
+			return errOp(GetErr());
+		}
+
 
 		template<typename Func, typename R = T> requires IsFunc<Func, Result<R, E>>
 		constexpr Result<R, E> then(Func&& next) noexcept(noexcept(next()) && Result<R, E>::NoExceptMove)
