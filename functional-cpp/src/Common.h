@@ -66,7 +66,20 @@ namespace fcpp {
     template<typename R, typename... Args>
     struct FunctionTraits<std::function<R(Args...)>>
     {
-        using ReturnType = R;
+        using ReturnType = typename R;
+        SCONSTEXPR size_t ArgC = sizeof...(Args);
+
+        template <size_t i>
+        struct Arg
+        {
+            using Type = typename std::tuple_element<i, std::tuple<Args...>>::type;
+        };
+    };
+
+    template <class R, class... Args>
+    struct FunctionTraits<R(*)(Args...)>
+    {
+        using ReturnType = typename R;
         SCONSTEXPR size_t ArgC = sizeof...(Args);
 
         template <size_t i>

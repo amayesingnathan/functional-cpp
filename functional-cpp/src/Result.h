@@ -4,8 +4,8 @@
 
 namespace fcpp {
 
-	template<typename T, IsEnum E>
-	class Result;
+	template<typename T>
+	class Option;
 
 	template<typename T, IsEnum E>
 	class Result
@@ -32,6 +32,7 @@ namespace fcpp {
 		using EnumType = E;
 
 	public:
+		explicit constexpr Result() = default;
 		explicit constexpr Result(T&& result) noexcept(NoExceptMove)
 			: mValue(std::move(result)), mResult(true) {}
 		explicit constexpr Result(E error) noexcept
@@ -39,11 +40,29 @@ namespace fcpp {
 
 		constexpr EnumUnionType as_enum() const noexcept { return mResult ? EnumUnionType(Ok) : GetErr(); }
 
+		/// <summary>
+		/// Converts from const Result<T, E> to Result<const T&, E>
+		/// </summary>
+		constexpr Result<const T&, E> as_ref() const noexcept { return mResult ? Result<const T&, E>(GetValRef()) : Result<const T&, E>(GetErr()); }
+
+		/// <summary>
+		/// Converts from Result<T, E> to Result<T&, E>
+		/// </summary>
+		constexpr Result<T&, E> as_mut() noexcept { return mResult ? Result<T&, E>(GetValRef()) : Result<T&, E>(GetErr()); }
+
 		constexpr bool is_ok() const noexcept { return mResult; }
 		constexpr bool is_err() const noexcept { return !mResult; }
 
-		constexpr T clone() const noexcept(NoExceptCopy) { return GetValCopy(); }
+		/*
+			Extracting contained values
 
+			These methods extract the contained value in a Result<T, E> when it is the Ok variant. Error behaviour depends on the method.
+			expect() and unwrap() are strongly discouraged and should only be used for unrecoverable errors.
+		*/
+
+		/// <summary>
+		/// Panics with a provided custom message or returns result
+		/// </summary>
 		constexpr T&& expect(const std::string_view msg)
 		{
 			if (!mResult)
@@ -51,54 +70,90 @@ namespace fcpp {
 			else
 				return GetVal();
 		}
+
+		/// <summary>
+		/// Panics with a generic message or returns result
+		/// </summary>
 		constexpr T&& unwrap() { return expect("emergency failure"); }
 
-		constexpr T&& unwrap_or(T&& defaultValue) noexcept(NoExceptMove)
+		/// <summary>
+		/// Returns result or the provided default value
+		/// </summary>
+		constexpr T&& unwrap_or(const T& defaultValue) noexcept(NoExceptMove) requires std::copyable<T>
 		{
 			if (mResult)
 				return GetVal();
 			else
-				return T(std::move(defaultValue));
+				return T(defaultValue);
 		}
-		constexpr T&& unwrap_or_default() noexcept(NoExceptDefNew)
+		/// <summary>
+		/// Returns result or the default value of the underlying type
+		/// </summary>
+		constexpr T&& unwrap_or_default() noexcept(NoExceptDefNew) requires std::is_default_constructible_v<T>
 		{
 			return unwrap_or(T());
 		}
+		/// <summary>
+		/// Returns result or the result of evaluating the provided function
+		/// </summary>
 		template<typename Func> requires IsFunc<Func, T>
 		constexpr T&& unwrap_or_else(Func&& op) noexcept(noexcept(op()) && NoExceptMove)
 		{
 			return unwrap_or(op());
 		}
 
-		template<typename Func, typename R> requires IsFunc<Func, Result<R, E>, T&&>
-		constexpr Result<R, E>&& map(Func&& op) noexcept(noexcept(op()) && Result<R, E>::NoExceptMove && NoExceptMove)
+
+		/*
+			Transforming contained values
+
+			These methods transform the contained value in a Result<T, E> while maintaining the result.
+		*/
+
+		/// <summary>
+		/// Transforms Result&lt;T, E&gt; into Result&lt;R, E&gt; by applying the provided function to the contained value of Ok and leaving Err values unchanged
+		/// </summary>
+		template<typename Func, typename U> requires IsFunc<Func, Result<U, E>, T&&>
+		constexpr Result<U, E>&& map(Func&& op) noexcept(noexcept(op()) && Result<U, E>::NoExceptMove && NoExceptMove)
 		{
 			if (mResult)
 				return op(GetVal());
 
-			return Result<R, E>(GetErr());
+			return Result<U, E>(GetErr());
 		}
-		template<typename Func, IsEnum U> requires IsFunc<Func, U, E>
+		/// <summary>
+		/// Transforms Result&lt;T, E&gt; into Result&lt;T, F&gt; by applying the provided function to the contained value of Err and leaving Ok values unchanged
+		/// </summary>
+		template<typename Func, IsEnum O> requires IsFunc<Func, O, E>
 		constexpr Result<T, E>&& map_err(Func&& op) noexcept(noexcept(op()) && NoExceptMove)
 		{
 			if (mResult)
-				return Result<T, U>(GetVal());
+				return Result<T, O>(GetVal());
 
-			return Result<T, U>(op(GetErr()));
+			return Result<T, O>(op(GetErr()));
 		}
-		template<typename Func, typename R> requires IsFunc<Func, R&&, T&&>
-		constexpr R&& map_or(R&& defaultVal, Func&& op) noexcept(noexcept(op()) && Result<R, E>::NoExceptMove && NoExceptMove)
+
+		/// <summary>
+		/// Applies the provided function to the contained value of Ok, or returns the provided default value if the Result is Err.
+		/// Function returns U&& where U is a possibly new type. 
+		/// </summary>
+		template<typename Func, typename U> requires IsFunc<Func, U&&, T&&>
+		constexpr U&& map_or(U defaultVal, Func&& op) noexcept(noexcept(op()) && Result<U, E>::NoExceptMove && NoExceptMove)
 		{
 			if (mResult)
 				return GetVal();
 
 			return std::move(defaultVal);
 		}
-		template<typename Func, typename ErrFunc, typename R> requires IsFunc<Func, R&&, T&&> and IsFunc<ErrFunc, R&&, E>
-		constexpr R&& map_or_else(Func&& op, ErrFunc&& errOp) noexcept(
+
+		/// <summary>
+		/// Applies the provided function to the contained value of Ok, or applies the provided default fallback function to the contained value of Err.
+		/// Both functions return U&& where U is a possibly new type. 
+		/// </summary>
+		template<typename Func, typename ErrFunc, typename U> requires IsFunc<Func, U&&, T&&> and IsFunc<ErrFunc, U&&, E>
+		constexpr U&& map_or_else(Func&& op, ErrFunc&& errOp) noexcept(
 			noexcept(op()) && 
 			noexcept(errOp()) &&
-			Result<R, E>::NoExceptMove &&
+			Result<U, E>::NoExceptMove &&
 			NoExceptMove
 		)
 		{
@@ -108,31 +163,25 @@ namespace fcpp {
 			return errOp(GetErr());
 		}
 
-
-		template<typename Func, typename R = T> requires IsFunc<Func, Result<R, E>>
-		constexpr Result<R, E> then(Func&& next) noexcept(noexcept(next()) && Result<R, E>::NoExceptMove)
+		/// <summary>
+		/// Returns the result of the provided function, or the error result
+		/// </summary>
+		template<typename Func> requires IsFunc<Func, Result<T, E>>
+		constexpr Result<T, E> operator |(Func&& next) noexcept(noexcept(next()) && NoExceptMove)
 		{
 			if (mResult)
 				return next();
 
-			return Result<R, E>(GetErr());
+			return Result<T, E>(GetErr());
 		}
 
-		template<typename Func, typename R = T> requires IsFunc<Func, Result<R, E>>
-		constexpr Result<R, E> operator |(Func&& next) noexcept(noexcept(next()) && Result<R, E>::NoExceptMove)
-		{
-			if (mResult)
-				return next();
-
-			return Result<R, E>(GetErr());
-		}
-
+	protected:
 		constexpr T&& GetVal() noexcept(NoExceptMove) { return std::move(*std::get_if<T>(&mValue)); }
-		constexpr T GetValCopy() { return *std::get_if<T>(&mValue); }
+		constexpr T& GetValRef() noexcept { return *std::get_if<T>(&mValue); }
 		constexpr E GetErr() const noexcept { return *std::get_if<E>(&mValue); }
 
 	protected:
-		bool mResult;
+		bool mResult = false;
 
 	private:
 		StorageType mValue;
