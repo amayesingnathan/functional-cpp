@@ -65,33 +65,27 @@
 
     #define FUNC_RETURN_TYPE FCPP_FUNC_SIG_STRING.substr(0, FCPP_FUNC_SIG_STRING.find_first_of(' ') - 1)
 
+    #define TRY_RET(value) \
+                ifc (FUNC_RETURN_TYPE == TypeTraits<typeof(value)>::Name)\
+                {\
+                    if (value.is_err())\
+                        return value;\
+                }\
+
     #define START(DoAction, ...) DoAction(__VA_ARGS__)
     #define NEXT(DoAction, ...) [&]() -> FunctionTraits<typeof(DoAction)>::ReturnType { return DoAction(__VA_ARGS__); }
 
     #define DO(ResultExpression) \
             {\
 	            auto finalResult = (ResultExpression);\
-                \
-                using FinalResultType = typeof(finalResult); \
-                ifc (FUNC_RETURN_TYPE == TypeTraits<FinalResultType>::Name)\
-                {\
-                    if (finalResult.is_err())\
-                        return finalResult;\
-                }\
+                TRY_RET(finalResult);\
             }
 
     #define DO_R(ResultType, ResultEnum, NewVarName, ResultExpression) \
             Result<ResultType, ResultEnum> NewVarName;\
             {\
 	            auto finalResult = (ResultExpression);\
-                \
-                using FinalResultType = typeof(finalResult); \
-                ifc (FUNC_RETURN_TYPE == TypeTraits<FinalResultType>::Name)\
-                {\
-                    if (finalResult.is_err())\
-                        return finalResult;\
-                }\
-                \
+                TRY_RET(finalResult);\
                 NewVarName = std::move(finalResult); \
             }
 
