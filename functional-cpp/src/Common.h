@@ -66,7 +66,7 @@ namespace fcpp {
     template<typename R, typename... Args>
     struct FunctionTraits<std::function<R(Args...)>>
     {
-        using ReturnType = typename R;
+        using ReturnType = R;
         SCONSTEXPR size_t ArgC = sizeof...(Args);
 
         template <size_t i>
@@ -79,7 +79,7 @@ namespace fcpp {
     template <class R, class... Args>
     struct FunctionTraits<R(*)(Args...)>
     {
-        using ReturnType = typename R;
+        using ReturnType = R;
         SCONSTEXPR size_t ArgC = sizeof...(Args);
 
         template <size_t i>

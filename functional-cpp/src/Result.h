@@ -188,7 +188,7 @@ namespace fcpp {
 	};
 
 	template<typename T, IsEnum E>
-	SCONSTEXPR Result<T, E> Ok(T&& result) noexcept(Result<T, E>::NoExceptMove)
+	SCONSTEXPR Result<T, E> Ok(T&& result) noexcept(T::NoExceptMove)
 	{
 		return Result<T, E>(std::move(result));
 	}
